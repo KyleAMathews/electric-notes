@@ -3,17 +3,14 @@ import { Note } from '../types/note';
 
 interface NotesState {
   notes: Note[];
-  selectedNoteId: string | null;
   searchQuery: string;
   addNote: () => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
-  selectNote: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
 }
 
 export const useNotesStore = create<NotesState>((set) => ({
   notes: [],
-  selectedNoteId: null,
   searchQuery: '',
 
   addNote: () => {
@@ -27,8 +24,10 @@ export const useNotesStore = create<NotesState>((set) => ({
 
     set((state) => ({
       notes: [newNote, ...state.notes],
-      selectedNoteId: newNote.id,
     }));
+
+    // Navigate to the new note using the route path
+    window.history.pushState({}, '', `/note/${newNote.id}`);
   },
 
   updateNote: (id, updates) => {
@@ -39,10 +38,6 @@ export const useNotesStore = create<NotesState>((set) => ({
           : note
       ),
     }));
-  },
-
-  selectNote: (id) => {
-    set({ selectedNoteId: id });
   },
 
   setSearchQuery: (query) => {

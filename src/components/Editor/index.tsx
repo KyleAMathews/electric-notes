@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { useParams } from '@tanstack/react-router';
 import { useNotesStore } from '../../store/useNotesStore';
-import { ydoc, wsProvider, fragment } from '../../lib/collaboration';
+import * as Y from "yjs";
 import { createTiptapExtensions } from '../../lib/tiptap';
 import { TitleInput } from './TitleInput';
-import { EditorPlaceholder } from './EditorPlaceholder';
+
+const ydoc = new Y.Doc();
+let network: ElectricProvider | undefined;
+let awareness: Awareness | undefined;
 
 export default function Editor() {
-  const { selectedNoteId, notes, updateNote } = useNotesStore();
-  const selectedNote = notes.find((note) => note.id === selectedNoteId);
+  const { notes, updateNote } = useNotesStore();
+  const { noteId } = useParams({ from: '/note/$noteId' });
+  const selectedNote = notes.find((note) => note.id === noteId);
   const [title, setTitle] = useState('');
 
   const editor = useEditor({
-    extensions: createTiptapExtensions(fragment, ydoc, wsProvider),
+    enableContentCheck: true,
+    extensions: createTiptapExtensions(ydoc, wsProvider),
   });
 
   useEffect(() => {
@@ -22,19 +28,19 @@ export default function Editor() {
     }
   }, [selectedNote, editor]);
 
-  if (!selectedNoteId) {
-    return <EditorPlaceholder />;
+  if (!selectedNote) {
+    return null;
   }
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    updateNote(selectedNoteId, { title: newTitle });
+    updateNote(noteId, { title: newTitle });
   };
 
   const handleContentChange = () => {
-    if (editor && selectedNoteId) {
-      updateNote(selectedNoteId, { content: editor.getHTML() });
+    if (editor) {
+      updateNote(noteId, { content: editor.getHTML() });
     }
   };
 
@@ -43,8 +49,8 @@ export default function Editor() {
       <TitleInput title={title} onChange={handleTitleChange} />
       <EditorContent
         editor={editor}
-        className="flex-1 p-4 prose max-w-none overflow-y-auto"
-        onBlur={handleContentChange}
+        className="flex-1 prose max-w-none p-4"
+        onChange={handleContentChange}
       />
     </div>
   );

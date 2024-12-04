@@ -6,7 +6,6 @@ import { Extensions } from '@tiptap/react';
 import * as Y from 'yjs';
 
 export function createTiptapExtensions(
-  fragment: Y.XmlFragment,
   document: Y.Doc,
   provider: any
 ): Extensions {
@@ -14,16 +13,15 @@ export function createTiptapExtensions(
     StarterKit.configure({
       history: false, // Important: Disable history as we're using collaboration
     }),
-    Collaboration.configure({
-      fragment,
+    Collaboration.extend().configure({
       document,
     }),
-    CollaborationCursor.configure({
-      provider: provider,
-      user: {
-        name: `User ${Math.floor(Math.random() * 100)}`,
-        color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-      },
+    CollaborationCursor.extend().configure({
+      provider,
+      // user: {
+      //   name: `User ${Math.floor(Math.random() * 100)}`,
+      //   color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+      // },
     }),
     Placeholder.configure({
       placeholder: 'Start writing...',
