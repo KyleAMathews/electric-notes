@@ -1,14 +1,17 @@
 import React from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { useNotesStore } from '../store/useNotesStore';
+// import { useNotesStore } from '../store/useNotesStore';
 
 export default function NotesList() {
-  const { notes, searchQuery } = useNotesStore();
-  const { noteId } = useParams({ from: '/note/$noteId' });
-
-  const filteredNotes = notes.filter((note) =>
-    note.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // const { notes, searchQuery } = useNotesStore();
+  const params = useParams({ strict: false });
+  console.log({ params })
+  const { noteId } = params
+  //
+  // const filteredNotes = notes.filter((note) =>
+  //   note.title.toLowerCase().includes(searchQuery.toLowerCase())
+  // );
+  const filteredNotes = []
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -17,9 +20,8 @@ export default function NotesList() {
           key={note.id}
           to="/note/$noteId"
           params={{ noteId: note.id }}
-          className={`block w-full text-left p-4 border-b border-gray-200 hover:bg-gray-100 transition-colors ${
-            noteId === note.id ? 'bg-gray-100' : ''
-          }`}
+          className={`block w-full text-left p-4 border-b border-gray-200 hover:bg-gray-100 transition-colors ${noteId === note.id ? 'bg-gray-100' : ''
+            }`}
         >
           <h3 className="font-medium truncate">{note.title}</h3>
           <p className="text-sm text-gray-500 mt-1">

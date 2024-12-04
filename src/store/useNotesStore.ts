@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Note } from '../types/note';
 
+console.trace()
+
 interface NotesState {
   notes: Note[];
   searchQuery: string;

@@ -38,8 +38,8 @@ const messageSync = 0
 
 export class ElectricProvider extends ObservableV2<ObservableProvider> {
   private serverUrl: string
-  private noteId: number
-  private doc: Y.Doc
+  private noteId: string
+  public doc: Y.Doc
   public awareness?: awarenessProtocol.Awareness
 
   private operationsStream?: ShapeStream<OperationMessage>
@@ -62,7 +62,7 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
 
   constructor(
     serverUrl: string,
-    noteId: number,
+    noteId: string,
     doc: Y.Doc,
     options: { awareness?: awarenessProtocol.Awareness; connect?: boolean }
   ) {
@@ -116,11 +116,11 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
   }
 
   private get operationsUrl() {
-    return this.serverUrl + "/v1/shape"
+    return this.serverUrl + "/notes-operations"
   }
 
   private get awarenessUrl() {
-    return this.serverUrl + "/v1/shape/"
+    return this.serverUrl + "/awareness"
   }
 
   get synced() {
@@ -208,10 +208,10 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
 
       this.operationsStream = new ShapeStream<OperationMessage>({
         url: this.operationsUrl,
-        table: "notes_operations",
-        where: `note_id = ${this.noteId}`,
+        params: {
+          nodeId: this.noteId,
+        },
         parser: parseToDecoder,
-        subscribe: true,
       })
 
       this.awarenessStream = new ShapeStream({
