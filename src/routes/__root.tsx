@@ -10,7 +10,7 @@ export const Route = createRootRoute({
       <div className="flex-1">
         <Outlet />
       </div>
-      {Resource.App.stage !== `production` && <TanStackRouterDevtools />}
+      {import.meta.env.PROD && <TanStackRouterDevtools />}
     </div>
   ),
 });

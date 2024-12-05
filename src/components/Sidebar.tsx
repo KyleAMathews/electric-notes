@@ -47,8 +47,9 @@ export default function Sidebar() {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`lg:hidden fixed top-3 left-0 z-50 p-2 text-gray-900 hover:bg-transparent transition-transform duration-300 ${isOpen ? 'translate-x-64' : 'translate-x-0'
-          }`}
+        className={`lg:hidden fixed top-0 left-0 z-50 p-2 text-gray-900 transition-all duration-300 ${
+          isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
       >
         <PanelLeft size={24} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
