@@ -1,6 +1,7 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/router-devtools'
-import Sidebar from '../components/Sidebar'
+import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+import Sidebar from "../components/Sidebar";
+import { Resource } from "sst";
 
 export const Route = createRootRoute({
   component: () => (
@@ -9,7 +10,7 @@ export const Route = createRootRoute({
       <div className="flex-1">
         <Outlet />
       </div>
-      <TanStackRouterDevtools />
+      {Resource.App.stage !== `production` && <TanStackRouterDevtools />}
     </div>
   ),
-})
+});
