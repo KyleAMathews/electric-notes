@@ -12,23 +12,12 @@ import { useNotes, updateNote } from "../../lib/notes";
 // Map to cache ElectricProvider instances per noteId
 const eProviderCache = new Map<string, ElectricProvider>();
 
-const usercolors = [
-  { color: `#30bced`, light: `#30bced33` },
-  { color: `#6eeb83`, light: `#6eeb8333` },
-  { color: `#ffbc42`, light: `#ffbc4233` },
-  { color: `#ecd444`, light: `#ecd44433` },
-  { color: `#ee6352`, light: `#ee635233` },
-  { color: `#9ac2c9`, light: `#9ac2c933` },
-];
-
-const userColor = usercolors[random.uint32() % usercolors.length];
-
 function getProvider(noteId: string) {
   let eProvider = eProviderCache.get(noteId);
 
   if (!eProvider) {
     const ydoc = new Y.Doc();
-    const awareness = new Awareness(ydoc)
+    const awareness = new Awareness(ydoc);
     eProvider = new ElectricProvider(
       new URL(`/shape-proxy`, import.meta.env.VITE_API_URL).href,
       noteId,
@@ -38,11 +27,6 @@ function getProvider(noteId: string) {
         awareness,
       },
     );
-    awareness?.setLocalStateField(`user`, {
-      name: userColor.color,
-      color: userColor.color,
-      colorLight: userColor.light,
-    });
     eProviderCache.set(noteId, eProvider);
   }
 
@@ -50,13 +34,13 @@ function getProvider(noteId: string) {
 }
 
 function ActualEditor({ noteId }: { noteId: string }) {
-  console.log({ noteId })
+  console.log({ noteId });
   const eProvider = getProvider(noteId);
   const { notes, isLoading } = useNotes();
   const [localTitle, setLocalTitle] = useState<string | null>(null);
   console.log({ eProvider });
 
-  const note = notes.find(note => note.id === parseInt(noteId, 10));
+  const note = notes.find((note) => note.id === parseInt(noteId, 10));
 
   // Initialize local title when note changes
   useEffect(() => {
@@ -77,12 +61,12 @@ function ActualEditor({ noteId }: { noteId: string }) {
   };
 
   const editor = useEditor({
-    enableContentCheck: true,
+    // enableContentCheck: true,
     extensions: createTiptapExtensions(eProvider),
   });
 
   if (isLoading || !note) {
-    return ``
+    return ``;
   }
 
   return (
