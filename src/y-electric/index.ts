@@ -323,7 +323,7 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
             this.lastSyncedStateVector = undefined;
             this.modifiedWhileOffline = false;
             this.emit("status", [{ status: "connected" }]);
-          });
+          }).catch(console.error);
         }
         unsubscribeOps();
       });
@@ -331,7 +331,7 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
       if (this.awarenessStream) {
         const unsubscribeAwareness = this.awarenessStream.subscribe(() => {
           if (this.awareness!.getLocalState() !== null) {
-            this.sendAwareness([this.doc.clientID]);
+            this.sendAwareness([this.doc.clientID])?.catch(console.error);
           }
           unsubscribeAwareness();
         });

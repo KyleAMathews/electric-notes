@@ -72,7 +72,7 @@ const updateNote = async (id: number, update: Partial<Note>) => {
         }),
         // Wait for the change to be streamed back from Electric
         matchStream(
-          getShapeStream<Note>({url: new URL("/shape-proxy/notes", import.meta.env.VITE_API_URL).toString()}) as ShapeStream<Row<unknown>>,
+          getShapeStream<Note>({url: new URL("/shape-proxy/notes", import.meta.env.VITE_API_URL).toString()}),
           ['update'],
           matchBy('title', update.title)
         )

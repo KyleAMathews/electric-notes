@@ -28,11 +28,7 @@ function getProvider(noteId: string) {
 
   if (!eProvider) {
     const ydoc = new Y.Doc();
-    const awareness = new Awareness(ydoc);
-    // Initialize title text if it doesn't exist
-    if (ydoc.getText("title").toString() === "") {
-      ydoc.getText("title").insert(0, "Untitled");
-    }
+    const awareness = new Awareness(ydoc)
     eProvider = new ElectricProvider(
       new URL(`/shape-proxy`, import.meta.env.VITE_API_URL).href,
       noteId,
