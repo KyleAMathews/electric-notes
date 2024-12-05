@@ -77,9 +77,9 @@ function ActualEditor({ noteId }: { noteId: string }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      <TitleInput 
-        title={note.title} 
+    <div className="flex-1 flex flex-col ml-10 border-l border-grey bg-white">
+      <TitleInput
+        title={note.title}
         onChange={handleTitleChange}
         error={note.error}
       />
@@ -101,7 +101,7 @@ export default function Editor() {
   }, [noteId]);
 
   return (
-    <div className="flex-1 flex flex-col h-screen">
+    <div className="flex-1 flex flex-col h-screen bg-gray-50">
       <ActualEditor key={noteId} noteId={noteId} />
     </div>
   );

@@ -8,19 +8,20 @@ interface TitleInputProps {
 
 export function TitleInput({ title, onChange, error }: TitleInputProps) {
   return (
-    <div className="p-4 border-b border-gray-200">
-      <input
-        type="text"
-        value={title}
-        onChange={onChange}
-        className={`w-full text-2xl font-bold focus:outline-none ${
-          error ? 'border-red-500' : ''
-        }`}
-        placeholder="Untitled"
-      />
-      {error && (
-        <div className="text-red-500 text-sm mt-1">{error}</div>
-      )}
+    <div className="border-b border-gray-200 flex">
+      <div className="flex-1 p-4">
+        <input
+          type="text"
+          value={title}
+          onChange={onChange}
+          className={`w-full text-2xl font-bold focus:outline-none ${error ? 'border-red-500' : ''
+            }`}
+          placeholder="Untitled"
+        />
+        {error && (
+          <div className="text-red-500 text-sm mt-1">{error}</div>
+        )}
+      </div>
     </div>
   );
 }
