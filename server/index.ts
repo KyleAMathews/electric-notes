@@ -16,6 +16,10 @@ const updateNoteTitleSchema = z.object({
   title: z.string(),
 });
 
+const heartbeatSchema = z.object({
+  userId: z.string(),
+});
+
 // Create the main app
 const app = new Hono();
 
@@ -157,5 +161,53 @@ app.patch(
     }
   },
 );
+
+// Heartbeat endpoint
+app.patch("/v1/note/:id/heartbeat", zValidator("json", heartbeatSchema), async (c) => {
+  const { id } = c.req.param();
+  const { userId } = c.req.valid("json");
+
+  try {
+    const sql = neon(Resource.databaseUriLink.pooledUrl);
+    // Get current active users
+    const result = await sql`
+      SELECT active_users FROM notes WHERE id = ${id}
+    `;
+    
+    let activeUsers = (result[0]?.active_users as any[]) || [];
+    const now = Date.now();
+    
+    // First, find if the user exists in the current list
+    const existingUserIndex = activeUsers.findIndex((u: any) => u.userId === userId);
+    
+    // If the user exists and their new lastActive would be old,
+    // this means they're leaving the note, so remove them
+    if (existingUserIndex >= 0 && now - activeUsers[existingUserIndex].lastActive > 25000) {
+      activeUsers.splice(existingUserIndex, 1);
+    } else {
+      // Otherwise update or add the user
+      if (existingUserIndex >= 0) {
+        activeUsers[existingUserIndex].lastActive = now;
+      } else {
+        activeUsers.push({ userId, lastActive: now });
+      }
+    }
+    
+    // Remove any other inactive users (>30 seconds without update)
+    activeUsers = activeUsers.filter(
+      (u: any) => u.userId === userId || now - u.lastActive <= 30000
+    );
+    
+    // Update the database
+    await sql`
+      UPDATE notes SET active_users = ${JSON.stringify(activeUsers)} WHERE id = ${id}
+    `;
+
+    return c.json({ activeUsers });
+  } catch (error) {
+    console.error("Error updating heartbeat:", error);
+    return c.json({ error: "Failed to update heartbeat" }, 400);
+  }
+});
 
 export default app;

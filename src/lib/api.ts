@@ -15,3 +15,20 @@ export async function updateNoteTitle(noteId: string, title: string) {
 
   return response.json();
 }
+
+export async function sendHeartbeat(noteId: string, userId: string) {
+  console.log(`sending heartbeat`, {noteId, userId})
+  const response = await fetch(`${API_BASE_URL}/v1/note/${noteId}/heartbeat`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to send heartbeat');
+  }
+
+  return response.json();
+}
