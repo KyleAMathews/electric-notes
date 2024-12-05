@@ -77,7 +77,7 @@ function ActualEditor({ noteId }: { noteId: string }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col ml-10 border-l border-grey bg-white">
+    <div className="flex-1 flex flex-col ml-10 lg:ml-0 border-l lg:border-0 border-grey bg-white">
       <TitleInput
         title={note.title}
         onChange={handleTitleChange}
