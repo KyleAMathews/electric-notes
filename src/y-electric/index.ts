@@ -9,6 +9,7 @@ import * as Y from "yjs";
 import {
   FetchError,
   isChangeMessage,
+  isControlMessage,
   Message,
   ShapeStream,
 } from "@electric-sql/client";
@@ -217,7 +218,7 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
         params: {
           where: `note_id = ${this.noteId}`,
         },
-        parser: parseToDecoder
+        parser: parseToDecoder,
       });
 
       this.awarenessStream = new ShapeStream({
@@ -235,21 +236,20 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
       const handleSyncMessage = (messages: Message<OperationMessage>[]) => {
         messages.forEach((message) => {
           if (isChangeMessage(message) && message.value.op) {
-            const decoder = message.value.op
+            const decoder = message.value.op;
             const encoder = encoding.createEncoder();
             encoding.writeVarUint(encoder, messageSync);
-            const syncMessageType = syncProtocol.readSyncMessage(
+            syncProtocol.readSyncMessage(
               decoder,
               encoder,
               this.doc,
               this,
             );
-            if (
-              syncMessageType === syncProtocol.messageYjsSyncStep2 &&
-              !this.synced
-            ) {
-              this.synced = true;
-            }
+          } else if (
+            isControlMessage(message) &&
+            message.headers.control === "up-to-date"
+          ) {
+            this.synced = true;
           }
         });
       };
@@ -264,7 +264,7 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
       ) => {
         messages.forEach((message) => {
           if (isChangeMessage(message) && message.value.op) {
-            const decoder = message.value.op
+            const decoder = message.value.op;
             awarenessProtocol.applyAwarenessUpdate(
               this.awareness!,
               decoding.readVarUint8Array(decoder),
@@ -319,11 +319,13 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
           const encoderState = encoding.createEncoder();
           syncProtocol.writeUpdate(encoderState, pendingUpdates);
 
-          this.sendOperation(pendingUpdates).then(() => {
-            this.lastSyncedStateVector = undefined;
-            this.modifiedWhileOffline = false;
-            this.emit("status", [{ status: "connected" }]);
-          }).catch(console.error);
+          this.sendOperation(pendingUpdates)
+            .then(() => {
+              this.lastSyncedStateVector = undefined;
+              this.modifiedWhileOffline = false;
+              this.emit("status", [{ status: "connected" }]);
+            })
+            .catch(console.error);
         }
         unsubscribeOps();
       });
