@@ -3,6 +3,7 @@
 import { execSync } from "child_process";
 import { createExampleDbAndAddtoElectric } from "./infra/create-db-and-add-to-electric";
 
+const ELECTRIC_URL = `https://api-dev-production.electric-sql.com/`;
 export default $config({
   app(input) {
     return {
@@ -22,7 +23,7 @@ export default $config({
 
       const electricUrlLink = new sst.Linkable("ElectricUrl", {
         properties: {
-          url: process.env.ELECTRIC_URL,
+          url: ELECTRIC_URL,
         },
       });
 
@@ -37,6 +38,7 @@ export default $config({
 
       return {
         databaseUri: databaseUri.properties.url,
+        pooled: databaseUri.properties.pooledUrl,
         ...electricInfo.properties,
         website: website.url,
         api: worker.url,
@@ -45,7 +47,7 @@ export default $config({
       console.error(`Failed to deploy electric-notes stack`, e);
     }
   },
-});
+})
 
 function applyMigrations(uri: string) {
   console.log(`apply migrations to `, uri);
@@ -76,7 +78,7 @@ function deploySite(
     environment: {
       VITE_ELECTRIC_TOKEN: electricInfo.properties.token,
       VITE_DATABASE_ID: electricInfo.properties.database_id,
-      VITE_ELECTRIC_URL: process.env.ELECTRIC_URL,
+      VITE_ELECTRIC_URL: ELECTRIC_URL,
       VITE_API_URL: worker.url as unknown as string,
     },
   });

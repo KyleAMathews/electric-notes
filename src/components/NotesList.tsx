@@ -1,32 +1,37 @@
-import React from 'react';
-import { Link, useParams } from '@tanstack/react-router';
-// import { useNotesStore } from '../store/useNotesStore';
+import React from "react";
+import { Link, useParams } from "@tanstack/react-router";
+import { useNotes } from '../lib/notes';
 
 export default function NotesList() {
-  // const { notes, searchQuery } = useNotesStore();
+  const { notes, isLoading } = useNotes();
   const params = useParams({ strict: false });
-  console.log({ params })
-  const { noteId } = params
-  //
-  // const filteredNotes = notes.filter((note) =>
-  //   note.title.toLowerCase().includes(searchQuery.toLowerCase())
-  // );
-  const filteredNotes = []
+  console.log({ params });
+  const { noteId } = params;
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {filteredNotes.map((note) => (
+      {notes.map((note) => (
         <Link
           key={note.id}
           to="/note/$noteId"
-          params={{ noteId: note.id }}
-          className={`block w-full text-left p-4 border-b border-gray-200 hover:bg-gray-100 transition-colors ${noteId === note.id ? 'bg-gray-100' : ''
-            }`}
+          params={{ noteId: note.id.toString() }}
+          className={`block w-full text-left p-4 border-b border-gray-200 hover:bg-gray-100 transition-colors ${
+            noteId === note.id.toString() ? "bg-gray-100" : ""
+          }`}
         >
-          <h3 className="font-medium truncate">{note.title}</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {new Date(note.updatedAt).toLocaleDateString()}
-          </p>
+          <div className="font-medium">
+            {note.title}
+            {note.error && (
+              <span className="text-red-500 text-sm ml-2">Error: {note.error}</span>
+            )}
+          </div>
+          <div className="text-sm text-gray-500">
+            {new Date(note.created_at).toLocaleDateString()}
+          </div>
         </Link>
       ))}
     </div>

@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import { useParams } from '@tanstack/react-router';
-// import { useNotesStore } from '../../store/useNotesStore';
+import React, { useEffect, useState } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import { useParams, useRouter } from "@tanstack/react-router";
 import * as Y from "yjs";
-import { createTiptapExtensions } from '../../lib/tiptap';
-import { TitleInput } from './TitleInput';
-import { Awareness } from "y-protocols/awareness"
-import { ElectricProvider } from '../../y-electric';
-import * as random from "lib0/random"
+import { createTiptapExtensions } from "../../lib/tiptap";
+import { TitleInput } from "./TitleInput";
+import { Awareness } from "y-protocols/awareness";
+import { ElectricProvider } from "../../y-electric";
+import * as random from "lib0/random";
+import { useNotes, updateNote } from "../../lib/notes";
 
 // Map to cache ElectricProvider instances per noteId
 const eProviderCache = new Map<string, ElectricProvider>();
@@ -19,79 +19,94 @@ const usercolors = [
   { color: `#ecd444`, light: `#ecd44433` },
   { color: `#ee6352`, light: `#ee635233` },
   { color: `#9ac2c9`, light: `#9ac2c933` },
-]
+];
 
-const userColor = usercolors[random.uint32() % usercolors.length]
+const userColor = usercolors[random.uint32() % usercolors.length];
 
-export default function Editor() {
-  // const { notes, updateNote } = useNotesStore();
-  const { noteId } = useParams({ from: '/note/$noteId' });
-  let selectedNote
-  // const selectedNote = notes.find((note) => note.id === noteId);
-  const [title, setTitle] = useState('');
-
-  // Check if an ElectricProvider instance exists for the current noteId
+function getProvider(noteId: string) {
   let eProvider = eProviderCache.get(noteId);
-  let awareness: Awareness | undefined;
 
   if (!eProvider) {
-    const ydoc = new Y.Doc()
-    awareness = new Awareness(ydoc)
-    eProvider = new ElectricProvider(new URL(`/shape-proxy`, window?.location.origin).href,
+    const ydoc = new Y.Doc();
+    const awareness = new Awareness(ydoc);
+    // Initialize title text if it doesn't exist
+    if (ydoc.getText("title").toString() === "") {
+      ydoc.getText("title").insert(0, "Untitled");
+    }
+    eProvider = new ElectricProvider(
+      new URL(`/shape-proxy`, import.meta.env.VITE_API_URL).href,
       noteId,
       ydoc,
       {
         connect: true,
         awareness,
-      });
+      },
+    );
     awareness?.setLocalStateField(`user`, {
       name: userColor.color,
       color: userColor.color,
       colorLight: userColor.light,
-    })
+    });
     eProviderCache.set(noteId, eProvider);
-  } else {
-    awareness = eProvider.awareness;
   }
+
+  return eProvider;
+}
+
+function ActualEditor({ noteId }: { noteId: string }) {
+  console.log({ noteId })
+  const eProvider = getProvider(noteId);
+  const { notes, isLoading } = useNotes();
+  console.log({ eProvider });
+
+  const note = notes.find(note => note.id === parseInt(noteId, 10));
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    // Fire and forget - errors will be handled by the optimistic store
+    updateNote(parseInt(noteId, 10), { title: newTitle }).catch(console.error);
+  };
+
+  const handleContentChange = () => {
+    console.log(`handleContentChange`);
+  };
 
   const editor = useEditor({
     enableContentCheck: true,
     extensions: createTiptapExtensions(eProvider),
   });
 
-  useEffect(() => {
-    // if (selectedNote) {
-    //   setTitle(selectedNote.title);
-    //   editor?.commands.setContent(selectedNote.content);
-    // }
-  }, [selectedNote, editor]);
-
-  // if (!selectedNote) {
-  //   return null;
-  // }
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value;
-    // setTitle(newTitle);
-    // updateNote(noteId, { title: newTitle });
-    console.log(`handleTitleChange`)
-  };
-
-  const handleContentChange = () => {
-    console.log(`handleContentChange`)
-    // if (editor) {
-    //   updateNote(noteId, { content: editor.getHTML() });
-    // }
-  };
+  if (isLoading || !note) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="flex-1 flex flex-col h-screen">
-      <TitleInput title={title} onChange={handleTitleChange} />
+    <div className="flex-1 flex flex-col">
+      <TitleInput 
+        title={note.title} 
+        onChange={handleTitleChange}
+        error={note.error}
+      />
       <EditorContent
         editor={editor}
         className="flex-1 prose max-w-none p-4"
         onChange={handleContentChange}
       />
+    </div>
+  );
+}
+
+export default function Editor() {
+  const { noteId } = useParams({ from: "/note/$noteId" });
+  const router = useRouter();
+
+  useEffect(() => {
+    router.invalidate();
+  }, [noteId]);
+
+  return (
+    <div className="flex-1 flex flex-col h-screen">
+      <ActualEditor key={noteId} noteId={noteId} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
 export function createExampleDbAndAddtoElectric({ name }: { name: string }) {
-  const NEON_ELECTRIC_EXAMPLES_ID = `bold-bush-75922852`
+  const NEON_ELECTRIC_EXAMPLES_ID = `dry-sea-41172759`;
   const project = neon.getProjectOutput({ id: NEON_ELECTRIC_EXAMPLES_ID });
 
   const db = new neon.Database(`${name}-${$app.stage}`, {
@@ -13,7 +13,7 @@ export function createExampleDbAndAddtoElectric({ name }: { name: string }) {
         : `${name}-${$app.stage}`,
     ownerName: `neondb_owner`,
   });
-  const databaseUri = getNeonDbUri(project, db);
+  const { pooledDb, databaseUri } = getNeonDbUri(project, db);
 
   const electricInfo = databaseUri.apply((uri) => addDatabaseToElectric(uri));
   electricInfo.apply(console.log);
@@ -28,6 +28,7 @@ export function createExampleDbAndAddtoElectric({ name }: { name: string }) {
   const databaseUriLink = new sst.Linkable(`databaseUriLink`, {
     properties: {
       url: databaseUri,
+      pooledUrl: pooledDb,
     },
   });
 
@@ -44,7 +45,10 @@ function getNeonDbUri(
     roleName: db.ownerName,
   });
 
-  return $interpolate`postgresql://${passwordOutput.roleName}:${passwordOutput.password}@${project.databaseHost}/${db.name}?sslmode=require`;
+  return {
+    databaseUri: $interpolate`postgresql://${passwordOutput.roleName}:${passwordOutput.password}@${project.databaseHost}/${db.name}?sslmode=require`,
+    pooledDb: $interpolate`postgresql://${passwordOutput.roleName}:${passwordOutput.password}@${project.databaseHost.apply((host) => host.replace(`.us-east`, `-pooler.us-east`))}/${db.name}?sslmode=require`,
+  };
 }
 
 async function addDatabaseToElectric(
