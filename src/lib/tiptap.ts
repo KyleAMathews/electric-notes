@@ -22,9 +22,6 @@ export function createTiptapExtensions(provider: any): Extensions {
       //     color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
       //   },
       // }),
-      Placeholder.configure({
-        placeholder: "Start writing...",
-      }),
     ];
   }
 }

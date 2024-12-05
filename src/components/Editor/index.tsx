@@ -73,7 +73,7 @@ function ActualEditor({ noteId }: { noteId: string }) {
   });
 
   if (isLoading || !note) {
-    return <div>Loading...</div>;
+    return ``
   }
 
   return (

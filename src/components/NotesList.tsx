@@ -9,7 +9,7 @@ export default function NotesList() {
   const { noteId } = params;
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return ``
   }
 
   return (
@@ -19,9 +19,8 @@ export default function NotesList() {
           key={note.id}
           to="/note/$noteId"
           params={{ noteId: note.id.toString() }}
-          className={`block w-full text-left p-4 border-b border-gray-200 hover:bg-gray-100 transition-colors ${
-            noteId === note.id.toString() ? "bg-gray-100" : ""
-          }`}
+          className={`block w-full text-left p-4 border-b border-gray-200 hover:bg-gray-100 transition-colors ${noteId === note.id.toString() ? "bg-gray-100" : ""
+            }`}
         >
           <div className="font-medium">
             {note.title}
