@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { Resource } from "sst";
-import postgres from "postgres";
+import { neon } from "@neondatabase/serverless";
 
 // Validation schemas
 const noteOperationSchema = z.object({
@@ -71,7 +71,7 @@ app.post(
   "/v1/note-operation",
   zValidator("json", noteOperationSchema),
   async (c) => {
-    const sql = postgres(Resource.databaseUriLink.pooledUrl);
+    const sql = neon(Resource.databaseUriLink.pooledUrl);
     try {
       const { note_id, op, clientId } = c.req.valid("json");
 
@@ -96,16 +96,16 @@ app.post(
       console.error("Error saving operation:", error);
       return c.json(
         { error: error instanceof Error ? error.message : "Unknown error" },
-        400
+        400,
       );
     }
-  }
+  },
 );
 
 // Create new note endpoint with validation
 app.post("/v1/note", async (c) => {
   console.log(`Resource`, Resource, Resource.databaseUriLink?.pooledUrl);
-  const sql = postgres(Resource.databaseUriLink.pooledUrl);
+  const sql = neon(Resource.databaseUriLink.pooledUrl);
   console.log(1);
   try {
     console.log(2);
@@ -123,35 +123,39 @@ app.post("/v1/note", async (c) => {
     console.error("Error creating note:", error);
     return c.json({ error: "Failed to create note" }, 400);
   } finally {
-  //  await sql.end();
+    //  await sql.end();
   }
 });
 
 // Update note title endpoint
-app.patch("/v1/note/:id/title", zValidator("json", updateNoteTitleSchema), async (c) => {
-  const { id } = c.req.param();
-  const { title } = c.req.valid("json");
-  const sql = postgres(Resource.databaseUriLink.pooledUrl);
-  
-  try {
-    const [note] = await sql`
+app.patch(
+  "/v1/note/:id/title",
+  zValidator("json", updateNoteTitleSchema),
+  async (c) => {
+    const { id } = c.req.param();
+    const { title } = c.req.valid("json");
+    const sql = neon(Resource.databaseUriLink.pooledUrl);
+
+    try {
+      const [note] = await sql`
       UPDATE notes
       SET title = ${title}
       WHERE id = ${id}
       RETURNING id, title, created_at
     `;
-    
-    if (!note) {
-      return c.json({ error: "Note not found" }, 404);
+
+      if (!note) {
+        return c.json({ error: "Note not found" }, 404);
+      }
+
+      return c.json(note);
+    } catch (error) {
+      console.error("Error updating note title:", error);
+      return c.json({ error: "Failed to update note title" }, 400);
+    } finally {
+      // await sql.end();
     }
-    
-    return c.json(note);
-  } catch (error) {
-    console.error("Error updating note title:", error);
-    return c.json({ error: "Failed to update note title" }, 400);
-  } finally {
-   // await sql.end();
-  }
-});
+  },
+);
 
 export default app;
