@@ -1,12 +1,17 @@
 import React from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, rootRouteId, useSearch, useParams } from "@tanstack/react-router";
 import { useNotes } from '../lib/notes';
 
 export default function NotesList() {
   const { notes, isLoading } = useNotes();
   const params = useParams({ strict: false });
-  console.log({ params });
+  const search = useSearch({ from: rootRouteId })
   const { noteId } = params;
+  let filteredNotes = notes
+
+  if (search.q && search.q !== ``) {
+    filteredNotes = notes.filter(note => note.title?.toLowerCase().includes(search.q.toLowerCase()))
+  }
 
   if (isLoading) {
     return ``
@@ -14,7 +19,7 @@ export default function NotesList() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {notes.map((note) => (
+      {filteredNotes.map((note) => (
         <Link
           key={note.id}
           to="/note/$noteId"

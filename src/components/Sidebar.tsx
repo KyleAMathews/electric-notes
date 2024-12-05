@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Plus, Search, Loader2, X, PanelLeft } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch, rootRouteId } from "@tanstack/react-router";
 import { Button, Dialog, Heading, Modal } from "react-aria-components";
 // import { useNotesStore } from '../store/useNotesStore';
 import NotesList from "./NotesList";
@@ -10,7 +10,7 @@ export default function Sidebar() {
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
-  // const { addNote, searchQuery, setSearchQuery } = useNotesStore();
+  const search = useSearch({ from: rootRouteId })
 
   const createNewNote = async () => {
     setIsCreating(true);
@@ -47,9 +47,8 @@ export default function Sidebar() {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`lg:hidden fixed top-0 left-0 z-50 p-2 text-gray-900 transition-all duration-300 ${
-          isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
+        className={`lg:hidden fixed top-0 left-0 z-50 p-2 text-gray-900 transition-all duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
       >
         <PanelLeft size={24} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -87,9 +86,8 @@ export default function Sidebar() {
               <input
                 type="text"
                 placeholder="Search notes..."
-                value={`hi`}
-                onChange={() => console.log(`changing...`)}
-                // onChange={(e) => setSearchQuery(e.target.value)}
+                value={search.q}
+                onChange={(e) => navigate({ search: (prev) => ({ q: e.target.value }) })}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
               />
               <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
