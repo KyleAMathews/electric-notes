@@ -4,9 +4,10 @@ import { useParams, useRouter } from "@tanstack/react-router";
 import * as Y from "yjs";
 import { createTiptapExtensions } from "../../lib/tiptap";
 import { TitleInput } from "./TitleInput";
-import { Awareness } from "y-protocols/awareness";
+// import { Awareness } from "y-protocols/awareness";
 import { ElectricProvider } from "../../y-electric";
-import * as random from "lib0/random";
+// import { ConservativeAwarenessCleanup } from "../../y-electric/awareness-cleanup"
+// import * as random from "lib0/random";
 import { useNotes, updateNote } from "../../lib/notes";
 import "./editor.css";
 
@@ -18,16 +19,27 @@ function getProvider(noteId: string) {
 
   if (!eProvider) {
     const ydoc = new Y.Doc();
-    const awareness = new Awareness(ydoc);
+    // const awareness = new Awareness(ydoc);
     eProvider = new ElectricProvider(
       new URL(`/shape-proxy`, import.meta.env.VITE_API_URL).href,
       noteId,
       ydoc,
       {
         connect: true,
-        awareness,
+        // awareness,
       },
     );
+    // awareness.on('change', ({ added, updated, removed }) => {
+    //   // Get all current user states
+    //   const states = awareness.getStates()
+    //   console.log(`Current users in note ${noteId}:`, Array.from(states.values()))
+    // })
+
+    // Create cleanup-er
+    // new ConservativeAwarenessCleanup(awareness, {
+    //   debug: true
+    // })
+
     eProviderCache.set(noteId, eProvider);
   }
 

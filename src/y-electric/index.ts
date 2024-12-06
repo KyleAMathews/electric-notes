@@ -255,13 +255,13 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
         parser: parseToDecoder,
       });
 
-      this.awarenessStream = new ShapeStream({
-        url: this.awarenessUrl,
-        params: {
-          where: `note_id = ${this.noteId}`,
-        },
-        parser: parseToDecoder,
-      });
+      // this.awarenessStream = new ShapeStream({
+      //   url: this.awarenessUrl,
+      //   params: {
+      //     where: `note_id = ${this.noteId}`,
+      //   },
+      //   parser: parseToDecoder,
+      // });
 
       const errorHandler = (e: FetchError | Error) => {
         throw e;
@@ -308,14 +308,14 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
         });
       };
 
-      const unsubscribeAwarenessHandler = this.awarenessStream.subscribe(
-        handleAwarenessMessage,
-        errorHandler,
-      );
+      // const unsubscribeAwarenessHandler = this.awarenessStream.subscribe(
+      //   handleAwarenessMessage,
+      //   errorHandler,
+      // );
 
       this.disconnectHandler = () => {
         this.operationsStream = undefined;
-        this.awarenessStream = undefined;
+        // this.awarenessStream = undefined;
 
         if (this.connected) {
           this.connected = false;
