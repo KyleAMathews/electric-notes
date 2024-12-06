@@ -160,6 +160,35 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
     }
   }
 
+  private async retryFetch(
+    url: URL,
+    options: RequestInit,
+    maxBackoff = 20000,
+  ): Promise<Response> {
+    let backoff = 1000; // Start with 1 second
+
+    while (true) {
+      try {
+        console.log(`retry fetch`, {url, options})
+        const response = await fetch(url, options);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return response;
+      } catch (error) {
+        console.error("Fetch error:", error);
+
+        // Wait before retrying, with exponential backoff
+        await new Promise((resolve) => setTimeout(resolve, backoff));
+
+        // Increase backoff, but cap at maxBackoff
+        backoff = Math.min(backoff * 2, maxBackoff);
+      }
+    }
+  }
+
   private sendOperation(update: Uint8Array) {
     if (update.length <= 2) {
       throw Error(
@@ -177,13 +206,16 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
     const op = toBase64(encoding.toUint8Array(encoder));
     const note_id = this.noteId;
 
-    return fetch(new URL("/v1/note-operation", this.serverUrl), {
-      method: "POST",
-      headers: {
-        "content-type": `application/json`,
+    return this.retryFetch(
+      new URL("/v1/note-operation", this.serverUrl),
+      {
+        method: "POST",
+        headers: {
+          "content-type": `application/json`,
+        },
+        body: JSON.stringify({ note_id, op }),
       },
-      body: JSON.stringify({ note_id, op }),
-    });
+    );
   }
 
   private sendAwareness(changedClients: number[]) {
@@ -198,13 +230,16 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
       const note_id = this.noteId;
       const clientId = `${this.doc.clientID}`;
 
-      return fetch(new URL("/v1/note-operation", this.serverUrl), {
-        method: "POST",
-        headers: {
-          "content-type": `application/json`,
+      return this.retryFetch(
+        new URL("/v1/note-operation", this.serverUrl),
+        {
+          method: "POST",
+          headers: {
+            "content-type": `application/json`,
+          },
+          body: JSON.stringify({ clientId, note_id, op }),
         },
-        body: JSON.stringify({ clientId, note_id, op }),
-      });
+      );
     }
   }
 
