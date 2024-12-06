@@ -3,7 +3,6 @@ import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { Extensions } from "@tiptap/react";
 import { ElectricProvider } from "../y-electric";
-import { sessionUserId } from './presence';
 
 // Colors that have good contrast with black text (WCAG AA compliant)
 const accessibleColors = [
@@ -17,20 +16,20 @@ const accessibleColors = [
   '#F0F8FF', // Alice Blue
 ];
 
-export interface UserInfo {
+interface UserInfo {
   name: string;
   color: string;
 }
 
-export function getOrCreateUserInfo(): UserInfo {
+function getOrCreateUserInfo(): UserInfo {
   const storedInfo = localStorage.getItem('electric-notes-user');
   if (storedInfo) {
     return JSON.parse(storedInfo);
   }
   
   const newInfo = {
-    name: sessionUserId,
-    color: accessibleColors[Math.floor(Math.random() * accessibleColors.length)],
+    name: `User ${Math.floor(Math.random() * 100)}`,
+    color: accessibleColors[Math.floor(Math.random() * accessibleColors.length)]
   };
   
   localStorage.setItem('electric-notes-user', JSON.stringify(newInfo));
