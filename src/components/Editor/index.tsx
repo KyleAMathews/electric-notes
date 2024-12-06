@@ -8,6 +8,7 @@ import { Awareness } from "y-protocols/awareness";
 import { ElectricProvider } from "../../y-electric";
 import * as random from "lib0/random";
 import { useNotes, updateNote } from "../../lib/notes";
+import "./editor.css";
 
 // Map to cache ElectricProvider instances per noteId
 const eProviderCache = new Map<string, ElectricProvider>();

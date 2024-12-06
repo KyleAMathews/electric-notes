@@ -169,7 +169,6 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
 
     while (true) {
       try {
-        console.log(`retry fetch`, {url, options})
         const response = await fetch(url, options);
 
         if (!response.ok) {
