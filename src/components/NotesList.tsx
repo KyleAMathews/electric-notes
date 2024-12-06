@@ -13,6 +13,8 @@ export default function NotesList() {
     filteredNotes = notes.filter(note => note.title?.toLowerCase().includes(search.q.toLowerCase()))
   }
 
+  filteredNotes = filteredNotes.sort((a, b) => a.id > b.id ? 1 : -1)
+
   if (isLoading) {
     return ``
   }
