@@ -4,6 +4,7 @@ import { useNavigate, useSearch, rootRouteId } from "@tanstack/react-router";
 import { Button, Dialog, Heading, Modal } from "react-aria-components";
 // import { useNotesStore } from '../store/useNotesStore';
 import NotesList from "./NotesList";
+import { AboutModal } from "./AboutModal";
 
 export default function Sidebar() {
   const [isCreating, setIsCreating] = useState(false);
@@ -79,6 +80,18 @@ export default function Sidebar() {
               )}
               <span>{isCreating ? "Creating..." : "New Note"}</span>
             </button>
+            <div className="mt-2 text-center text-sm text-gray-600">
+              Notes Demo App Built with Electric —{" "}
+              <AboutModal 
+                trigger={
+                  <Button
+                    className="text-blue-600 hover:underline"
+                  >
+                    learn more
+                  </Button>
+                }
+              />
+            </div>
           </div>
 
           <div className="p-4 border-b border-gray-200">
