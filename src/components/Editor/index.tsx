@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { useParams, useRouter } from "@tanstack/react-router";
 import * as Y from "yjs";
@@ -37,21 +37,12 @@ function ActualEditor({ noteId }: { noteId: string }) {
   console.log({ noteId });
   const eProvider = getProvider(noteId);
   const { notes, isLoading } = useNotes();
-  const [localTitle, setLocalTitle] = useState<string | null>(null);
   console.log({ eProvider });
 
   const note = notes.find((note) => note.id === parseInt(noteId, 10));
 
-  // Initialize local title when note changes
-  useEffect(() => {
-    if (note) {
-      setLocalTitle(note.title);
-    }
-  }, [note?.id]);
-
   const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newTitle = e.target.value;
-    setLocalTitle(newTitle);
     // Fire and forget - errors will be handled by the optimistic store
     updateNote(parseInt(noteId, 10), { title: newTitle }).catch(console.error);
   };
@@ -72,7 +63,7 @@ function ActualEditor({ noteId }: { noteId: string }) {
   return (
     <div className="flex-1 flex flex-col ml-10 lg:ml-0 border-l lg:border-0 border-grey bg-white">
       <TitleInput
-        title={localTitle ?? note.title}
+        title={note.title}
         onChange={handleTitleChange}
         error={note.error}
       />
