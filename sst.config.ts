@@ -65,7 +65,7 @@ function deploySite(
 ) {
   return new sst.aws.StaticSite("notes-app", {
     domain: {
-      name: `notes${$app.stage === `production` ? `` : `-stage-${$app.stage}`}.electric-sql.com`,
+      name: `notes.examples${$app.stage === `production` ? `` : `-stage-${$app.stage}`}.electric-sql.com`,
       dns: sst.cloudflare.dns(),
     },
     dev: {
