@@ -1,4 +1,4 @@
-import { toBase64, fromBase64 } from "lib0/buffer";
+import { toBase64 } from "lib0/buffer";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import * as syncProtocol from "y-protocols/sync";
@@ -7,40 +7,49 @@ import { ObservableV2 } from "lib0/observable";
 import * as env from "lib0/environment";
 import * as Y from "yjs";
 import {
-  FetchError,
   isChangeMessage,
   isControlMessage,
   Message,
+  Offset,
   ShapeStream,
 } from "@electric-sql/client";
-import { parseToDecoder } from "./utils";
+import {
+  parseToDecoder,
+  parseToDecoderLazy,
+  paserToTimestamptz,
+} from "./utils";
+import { IndexeddbPersistence } from "y-indexeddb";
 
 type OperationMessage = {
   op: decoding.Decoder;
-  note_id: number;
 };
 
 type AwarenessMessage = {
-  op: decoding.Decoder;
+  op: () => decoding.Decoder;
   clientId: string;
-  note_id: number;
+  room: string;
+  updated: Date;
 };
 
 type ObservableProvider = {
   sync: (state: boolean) => void;
   synced: (state: boolean) => void;
   status: (status: {
-    status: "connecting" | "connected" | "disconnected";
+    status: `connecting` | `connected` | `disconnected`;
   }) => void;
+
   "connection-close": () => void;
 };
+
+// from yjs docs, need to check if is configurable
+const awarenessPingPeriod = 30000; //ms
 
 const messageSync = 0;
 
 export class ElectricProvider extends ObservableV2<ObservableProvider> {
-  private serverUrl: string;
-  public noteId: string;
-  public doc: Y.Doc;
+  private baseUrl: string;
+  private roomName: string;
+  private doc: Y.Doc;
   public awareness?: awarenessProtocol.Awareness;
 
   private operationsStream?: ShapeStream<OperationMessage>;
@@ -58,19 +67,32 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
     changed: { added: number[]; updated: number[]; removed: number[] },
     origin: string,
   ) => void;
-  private disconnectHandler?: () => void;
+  private disconnectShapeHandler?: () => void;
   private exitHandler?: () => void;
 
+  private persistence?: IndexeddbPersistence;
+  private loaded: boolean;
+  private resume: {
+    operations?: { offset: Offset; handle: string };
+    awareness?: { offset: Offset; handle: string };
+  } = {};
+
+  private awarenessState: Record<string, number | string> | null = null;
+
   constructor(
-    serverUrl: string,
-    noteId: string,
+    baseUrl: string,
+    roomName: string,
     doc: Y.Doc,
-    options: { awareness?: awarenessProtocol.Awareness; connect?: boolean },
+    options: {
+      awareness?: awarenessProtocol.Awareness;
+      connect?: boolean;
+      persistence?: IndexeddbPersistence;
+    }, // TODO: make it generic, we can load it outside the provider
   ) {
     super();
 
-    this.serverUrl = serverUrl;
-    this.noteId = noteId;
+    this.baseUrl = baseUrl;
+    this.roomName = roomName;
 
     this.doc = doc;
     this.awareness = options.awareness;
@@ -81,47 +103,37 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
 
     this.modifiedWhileOffline = false;
 
+    this.persistence = options.persistence;
+    this.loaded = this.persistence === undefined;
+
     this.updateHandler = (update: Uint8Array, origin: unknown) => {
       if (origin !== this) {
         this.sendOperation(update);
       }
     };
-    this.doc.on("update", this.updateHandler);
+    this.doc.on(`update`, this.updateHandler);
 
     if (this.awareness) {
       this.awarenessUpdateHandler = ({ added, updated, removed }, origin) => {
-        if (origin === "local") {
+        if (origin === `local`) {
           const changedClients = added.concat(updated).concat(removed);
           this.sendAwareness(changedClients);
         }
       };
-      this.awareness.on("update", this.awarenessUpdateHandler);
+      this.awareness.on(`update`, this.awarenessUpdateHandler);
     }
 
-    if (env.isNode && typeof process !== "undefined") {
+    if (env.isNode && typeof process !== `undefined`) {
       this.exitHandler = () => {
-        if (this.awareness) {
-          awarenessProtocol.removeAwarenessStates(
-            this.awareness,
-            [doc.clientID],
-            "app closed",
-          );
-        }
-        process.on("exit", () => this.exitHandler!());
+        process.on(`exit`, () => this.destroy());
       };
     }
 
-    if (options.connect) {
+    if (!this.loaded) {
+      this.loadSyncState();
+    } else if (options.connect) {
       this.connect();
     }
-  }
-
-  private get operationsUrl() {
-    return this.serverUrl + "/notes-operations";
-  }
-
-  private get awarenessUrl() {
-    return this.serverUrl + "/awareness";
   }
 
   get synced() {
@@ -131,25 +143,81 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
   set synced(state) {
     if (this._synced !== state) {
       this._synced = state;
-      this.emit("synced", [state]);
-      this.emit("sync", [state]);
+      this.emit(`synced`, [state]);
+      this.emit(`sync`, [state]);
+    }
+  }
+
+  async loadSyncState() {
+    if (!this.persistence) {
+      throw Error(`Can't load sync state without persistence backend`);
+    }
+    const operationsHandle = await this.persistence.get(`operations_handle`);
+    const operationsOffset = await this.persistence.get(`operations_offset`);
+
+    const awarenessHandle = await this.persistence.get(`awareness_handle`);
+    const awarenessOffset = await this.persistence.get(`awareness_offset`);
+
+    const lastSyncedStateVector = await this.persistence.get(
+      `last_synced_state_vector`,
+    );
+
+    this.lastSyncedStateVector = lastSyncedStateVector;
+    this.modifiedWhileOffline = this.lastSyncedStateVector !== undefined;
+
+    this.resume = {
+      operations: {
+        handle: operationsHandle,
+        offset: operationsOffset,
+      },
+
+      // TODO: we might miss some awareness updates since last pings
+      awareness: {
+        handle: awarenessHandle,
+        offset: awarenessOffset,
+      },
+    };
+
+    this.loaded = true;
+    if (this.shouldConnect) {
+      this.connect();
     }
   }
 
   destroy() {
     this.disconnect();
-    this.doc.off("update", this.updateHandler);
-    this.awareness?.off("update", this.awarenessUpdateHandler!);
-    if (env.isNode && typeof process !== "undefined") {
-      process.off("exit", this.exitHandler!);
+    this.doc.off(`update`, this.updateHandler);
+    this.awareness?.off(`update`, this.awarenessUpdateHandler!);
+    if (env.isNode && typeof process !== `undefined`) {
+      process.off(`exit`, this.exitHandler!);
     }
     super.destroy();
   }
 
   disconnect() {
     this.shouldConnect = false;
-    if (this.disconnectHandler) {
-      this.disconnectHandler();
+
+    if (this.awareness && this.connected) {
+      this.awarenessState = this.awareness.getLocalState();
+
+      awarenessProtocol.removeAwarenessStates(
+        this.awareness,
+        Array.from(this.awareness.getStates().keys()).filter(
+          (client) => client !== this.doc.clientID,
+        ),
+        this,
+      );
+
+      // try to notify other clients that we are disconnected
+      awarenessProtocol.removeAwarenessStates(
+        this.awareness,
+        [this.doc.clientID],
+        `local`,
+      );
+    }
+
+    if (this.disconnectShapeHandler) {
+      this.disconnectShapeHandler();
     }
   }
 
@@ -158,43 +226,14 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
     if (!this.connected && !this.operationsStream) {
       this.setupShapeStream();
     }
-  }
 
-  private async retryFetch(
-    url: URL,
-    options: RequestInit,
-    maxBackoff = 20000,
-  ): Promise<Response> {
-    let backoff = 1000; // Start with 1 second
-
-    while (true) {
-      try {
-        const response = await fetch(url, options);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        return response;
-      } catch (error) {
-        console.error("Fetch error:", error);
-
-        // Wait before retrying, with exponential backoff
-        await new Promise((resolve) => setTimeout(resolve, backoff));
-
-        // Increase backoff, but cap at maxBackoff
-        backoff = Math.min(backoff * 2, maxBackoff);
-      }
+    if (this.awareness && this.awarenessState !== null) {
+      this.awareness.setLocalState(this.awarenessState);
+      this.awarenessState = null;
     }
   }
 
   private sendOperation(update: Uint8Array) {
-    if (update.length <= 2) {
-      throw Error(
-        "Shouldn't be trying to send operations without pending operations",
-      );
-    }
-
     if (!this.connected) {
       this.modifiedWhileOffline = true;
       return Promise.resolve();
@@ -203,18 +242,16 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
     const encoder = encoding.createEncoder();
     syncProtocol.writeUpdate(encoder, update);
     const op = toBase64(encoding.toUint8Array(encoder));
-    const note_id = this.noteId;
+    const room = this.roomName
 
-    return this.retryFetch(
-      new URL("/v1/note-operation", this.serverUrl),
-      {
-        method: "POST",
-        headers: {
-          "content-type": `application/json`,
-        },
-        body: JSON.stringify({ note_id, op }),
+    console.log({ room, op });
+    return fetch(new URL("/v1/note-operation", this.baseUrl), {
+      method: `POST`,
+      headers: {
+        "content-type": `application/json`,
       },
-    );
+      body: JSON.stringify({ note_id: room, op }),
+    });
   }
 
   private sendAwareness(changedClients: number[]) {
@@ -226,19 +263,16 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
     const op = toBase64(encoding.toUint8Array(encoder));
 
     if (this.connected) {
-      const note_id = this.noteId;
+      const room = this.roomName
       const clientId = `${this.doc.clientID}`;
 
-      return this.retryFetch(
-        new URL("/v1/note-operation", this.serverUrl),
-        {
-          method: "POST",
-          headers: {
-            "content-type": `application/json`,
-          },
-          body: JSON.stringify({ clientId, note_id, op }),
+      return fetch(new URL("/v1/note-operation", this.baseUrl), {
+        method: `POST`,
+        headers: {
+          "content-type": `application/json`,
         },
-      );
+        body: JSON.stringify({ clientId, note_id: room, op }),
+      });
     }
   }
 
@@ -247,24 +281,35 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
       this.connected = false;
       this.synced = false;
 
+      console.log(`Setting up shape stream ${JSON.stringify(this.resume)}`);
+
       this.operationsStream = new ShapeStream<OperationMessage>({
-        url: this.operationsUrl,
+        url: this.baseUrl + `/notes-operations`,
         params: {
-          where: `note_id = ${this.noteId}`,
+          where: `note_id = '${this.roomName}'`,
         },
         parser: parseToDecoder,
+        subscribe: true,
+        ...this.resume.operations,
       });
 
-      // this.awarenessStream = new ShapeStream({
-      //   url: this.awarenessUrl,
-      //   params: {
-      //     where: `note_id = ${this.noteId}`,
-      //   },
-      //   parser: parseToDecoder,
-      // });
+      this.awarenessStream = new ShapeStream({
+        url: this.baseUrl + `/awareness`,
+        params: {
+          where: `note_id = '${this.roomName}'`,
+        },
+        parser: { ...parseToDecoderLazy, ...paserToTimestamptz },
+        ...this.resume.awareness,
+      });
 
-      const errorHandler = (e: FetchError | Error) => {
-        throw e;
+      const updateShapeState = (
+        name: `operations` | `awareness`,
+        offset: Offset,
+        handle: string,
+      ) => {
+        this.resume[name] = { offset, handle };
+        this.persistence?.set(`${name}_offset`, offset);
+        this.persistence?.set(`${name}_handle`, handle);
       };
 
       const handleSyncMessage = (messages: Message<OperationMessage>[]) => {
@@ -273,32 +318,41 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
             const decoder = message.value.op;
             const encoder = encoding.createEncoder();
             encoding.writeVarUint(encoder, messageSync);
-            syncProtocol.readSyncMessage(
-              decoder,
-              encoder,
-              this.doc,
-              this,
-            );
+            syncProtocol.readSyncMessage(decoder, encoder, this.doc, this);
           } else if (
             isControlMessage(message) &&
-            message.headers.control === "up-to-date"
+            message.headers.control === `up-to-date`
           ) {
             this.synced = true;
+
+            if (
+              this.operationsStream?.lastOffset &&
+              this.operationsStream?.shapeHandle
+            ) {
+              updateShapeState(
+                `operations`,
+                this.operationsStream.lastOffset,
+                this.operationsStream.shapeHandle,
+              );
+            }
           }
         });
       };
 
-      const unsubscribeSyncHandler = this.operationsStream.subscribe(
-        handleSyncMessage,
-        errorHandler,
-      );
+      const unsubscribeSyncHandler =
+        this.operationsStream.subscribe(handleSyncMessage);
 
       const handleAwarenessMessage = (
         messages: Message<AwarenessMessage>[],
       ) => {
+        const minTime = new Date(Date.now() - awarenessPingPeriod);
         messages.forEach((message) => {
           if (isChangeMessage(message) && message.value.op) {
-            const decoder = message.value.op;
+            if (message.value.updated < minTime) {
+              return;
+            }
+
+            const decoder = message.value.op();
             awarenessProtocol.applyAwarenessUpdate(
               this.awareness!,
               decoding.readVarUint8Array(decoder),
@@ -306,74 +360,69 @@ export class ElectricProvider extends ObservableV2<ObservableProvider> {
             );
           }
         });
+
+        if (
+          this.awarenessStream?.lastOffset &&
+          this.awarenessStream?.shapeHandle
+        ) {
+          updateShapeState(
+            `awareness`,
+            this.awarenessStream.lastOffset,
+            this.awarenessStream.shapeHandle,
+          );
+        }
       };
 
-      // const unsubscribeAwarenessHandler = this.awarenessStream.subscribe(
-      //   handleAwarenessMessage,
-      //   errorHandler,
-      // );
+      const unsubscribeAwarenessHandler = this.awarenessStream.subscribe(
+        handleAwarenessMessage,
+      );
 
-      this.disconnectHandler = () => {
+      this.disconnectShapeHandler = () => {
         this.operationsStream = undefined;
-        // this.awarenessStream = undefined;
+        this.awarenessStream = undefined;
 
         if (this.connected) {
-          this.connected = false;
-
-          this.synced = false;
-
-          if (this.awareness) {
-            awarenessProtocol.removeAwarenessStates(
-              this.awareness,
-              Array.from(this.awareness.getStates().keys()).filter(
-                (client) => client !== this.doc.clientID,
-              ),
-              this,
-            );
-          }
           this.lastSyncedStateVector = Y.encodeStateVector(this.doc);
-          this.emit("status", [{ status: "disconnected" }]);
+          this.persistence?.set(
+            `last_synced_state_vector`,
+            this.lastSyncedStateVector,
+          );
+
+          this.connected = false;
+          this.synced = false;
+          this.emit(`status`, [{ status: `disconnected` }]);
         }
 
         unsubscribeSyncHandler();
         unsubscribeAwarenessHandler();
-        this.disconnectHandler = undefined;
-        this.emit("connection-close", []);
+        this.disconnectShapeHandler = undefined;
+        this.emit(`connection-close`, []);
       };
 
-      // send pending changes
-      const unsubscribeOps = this.operationsStream!.subscribe(() => {
-        this.connected = true;
+      const pushLocalChangesUnsubscribe = this.operationsStream!.subscribe(
+        () => {
+          this.connected = true;
 
-        if (this.modifiedWhileOffline) {
-          const pendingUpdates = Y.encodeStateAsUpdate(
-            this.doc,
-            this.lastSyncedStateVector,
-          );
-          const encoderState = encoding.createEncoder();
-          syncProtocol.writeUpdate(encoderState, pendingUpdates);
+          if (this.modifiedWhileOffline) {
+            const pendingUpdates = Y.encodeStateAsUpdate(
+              this.doc,
+              this.lastSyncedStateVector,
+            );
+            const encoderState = encoding.createEncoder();
+            syncProtocol.writeUpdate(encoderState, pendingUpdates);
 
-          this.sendOperation(pendingUpdates)
-            .then(() => {
+            this.sendOperation(pendingUpdates).then(() => {
               this.lastSyncedStateVector = undefined;
               this.modifiedWhileOffline = false;
-              this.emit("status", [{ status: "connected" }]);
-            })
-            .catch(console.error);
-        }
-        unsubscribeOps();
-      });
-
-      if (this.awarenessStream) {
-        const unsubscribeAwareness = this.awarenessStream.subscribe(() => {
-          if (this.awareness!.getLocalState() !== null) {
-            this.sendAwareness([this.doc.clientID])?.catch(console.error);
+              this.persistence?.del(`last_synced_state_vector`);
+              this.emit(`status`, [{ status: `connected` }]);
+            });
           }
-          unsubscribeAwareness();
-        });
-      }
+          pushLocalChangesUnsubscribe();
+        },
+      );
 
-      this.emit("status", [{ status: "connecting" }]);
+      this.emit(`status`, [{ status: `connecting` }]);
     }
   }
 }

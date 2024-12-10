@@ -1,6 +1,6 @@
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
-// import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { Extensions } from "@tiptap/react";
 import { ElectricProvider } from "../y-electric";
 
@@ -46,12 +46,12 @@ export function createTiptapExtensions(provider: ElectricProvider): Extensions {
     Collaboration.extend().configure({
       document: provider.doc,
     }),
-    // CollaborationCursor.extend().configure({
-    //   provider,
-    //   user: {
-    //     name: userInfo.name,
-    //     color: userInfo.color,
-    //   },
-    // }),
+    CollaborationCursor.extend().configure({
+      provider,
+      user: {
+        name: userInfo.name,
+        color: userInfo.color,
+      },
+    }),
   ];
 }
