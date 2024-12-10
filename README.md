@@ -32,10 +32,6 @@ The application uses two main tables:
 
 The project implements a custom Yjs provider similar to y-websocket in [`src/y-electric/index.ts`](src/y-electric/index.ts). This provider syncs Yjs operations using ElectricSQL's `ShapeStream` class from the [Electric TypeScript client](https://electric-sql.com/docs/api/clients/typescript).
 
-## Getting Started
-
-(Add installation and setup instructions here)
-
 ## Contributing
 
 Feel free to contribute to this project!
