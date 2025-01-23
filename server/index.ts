@@ -36,7 +36,7 @@ async function proxyToElectric(request, table) {
   });
 
   originUrl.searchParams.set(`token`, Resource.electricInfo.token);
-  originUrl.searchParams.set(`database_id`, Resource.electricInfo.database_id);
+  originUrl.searchParams.set(`source_id`, Resource.electricInfo.database_id);
 
   originUrl.searchParams.set(`table`, table);
 

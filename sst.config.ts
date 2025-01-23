@@ -1,16 +1,18 @@
 /// <reference path="./.sst/platform/config.d.ts" />
-
 import { execSync } from "child_process";
 import { createExampleDbAndAddtoElectric } from "./infra/create-db-and-add-to-electric";
-
-const ELECTRIC_URL = `https://api-dev-production.electric-sql.com/`;
+const ELECTRIC_URL = `https://api.electric-sql.cloud/`;
 export default $config({
   app(input) {
     return {
       name: "electric-notes",
       removal: input?.stage === "production" ? "retain" : "remove",
       home: "aws",
-      providers: { neon: "0.6.3" },
+      providers: {
+        neon: "0.6.3",
+        command: "1.0.1",
+        aws: { profile: `marketing` },
+      },
     };
   },
   async run() {
@@ -18,24 +20,19 @@ export default $config({
       const { electricInfo, databaseUri } = createExampleDbAndAddtoElectric({
         name: `electric-notes`,
       });
-
       databaseUri.properties.url.apply(applyMigrations);
-
       const electricUrlLink = new sst.Linkable("ElectricUrl", {
         properties: {
           url: ELECTRIC_URL,
         },
       });
-
       // Add Cloudflare Worker
       const worker = new sst.cloudflare.Worker("electric-notes-api", {
         handler: "./server/index.ts",
         url: true,
         link: [databaseUri, electricInfo, electricUrlLink],
       });
-
       const website = deploySite(electricInfo, worker);
-
       return {
         databaseUri: databaseUri.properties.url,
         pooled: databaseUri.properties.pooledUrl,
@@ -47,8 +44,7 @@ export default $config({
       console.error(`Failed to deploy electric-notes stack`, e);
     }
   },
-})
-
+});
 function applyMigrations(uri: string) {
   console.log(`apply migrations to `, uri);
   execSync(`npx pg-migrations apply --directory ./migrations`, {
@@ -58,14 +54,18 @@ function applyMigrations(uri: string) {
     },
   });
 }
-
 function deploySite(
-  electricInfo: sst.Linkable<{ database_id: string; token: string }>,
+  electricInfo: sst.Linkable<{
+    database_id: string;
+    token: string;
+  }>,
   worker: sst.cloudflare.Worker,
 ) {
   return new sst.aws.StaticSite("notes-app", {
     domain: {
-      name: `notes.examples${$app.stage === `production` ? `` : `-stage-${$app.stage}`}.electric-sql.com`,
+      name: `notes.examples${
+        $app.stage === `production` ? `` : `-stage-${$app.stage}`
+      }.electric-sql.com`,
       dns: sst.cloudflare.dns(),
     },
     dev: {
@@ -78,7 +78,7 @@ function deploySite(
     environment: {
       VITE_ELECTRIC_TOKEN: electricInfo.properties.token,
       VITE_DATABASE_ID: electricInfo.properties.database_id,
-      VITE_ELECTRIC_URL: ELECTRIC_URL,
+      VITE_ELECTRIC_URL: `https://api.electric-sql.cloud`,
       VITE_API_URL: worker.url as unknown as string,
     },
   });
